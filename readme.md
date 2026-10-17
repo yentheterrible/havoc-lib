@@ -12,7 +12,7 @@ status   : active
 
 ### overview
 
-`havoclib.lua` is built for performance, minimal memory overhead, and smooth runtime execution. it provides clean interface management, responsive scaling, built-in themes, drag-and-drop window handling, and secure callback execution out of the box.
+`havoc lib` is built for performance, minimal memory overhead, and smooth runtime execution. it provides clean interface management, responsive scaling, built-in themes, drag-and-drop window handling, and secure callback execution out of the box.
 
 ---
 
