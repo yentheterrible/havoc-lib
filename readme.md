@@ -19,7 +19,7 @@ status   : active
 ### quick start
 
 ```lua
-local HavocLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/yentheterrible/ui/main/havoclib.lua"))()
+local HavocLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/yentheterrible/havoc-lib/main/init.lua"))()
 
 local Window = HavocLib.new({
     Title = "havoc lib",
