@@ -6,8 +6,8 @@ local TextService = game:GetService("TextService")
 local Workspace = game:GetService("Workspace")
 
 local Theme = {}
-local CONTROL_RIGHT_INSET = 20
-local SIDEBAR_WIDTH = 176
+local CONTROL_RIGHT_INSET = 16
+local SIDEBAR_WIDTH = 188
 
 local function isFiniteNumber(value)
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
@@ -44,7 +44,7 @@ Theme.HoverDuration = 0.2
 Theme.PressScale = 0.985
 Theme.OpenScale = 0.95
 Theme.Padding = 16
-Theme.Font = { Caption = 12, Body = 14, Label = 14, Heading = 16 }
+Theme.Font = { Caption = 12, Body = 14, Label = 14, Heading = 15 }
 Theme.Animation = {
 	Hover = TweenInfo.new(Theme.HoverDuration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 	Press = TweenInfo.new(0.12, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
@@ -285,6 +285,7 @@ local Elements = (function()
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Top,
+			RichText = false,
 		}, parent)
 		return content
 	end
@@ -301,7 +302,7 @@ local Elements = (function()
 		local rowStroke = componentElements.Stroke(row, 1)
 		local label = componentElements.TextLabel(row, options.Name, 14, COLORS.Text, Enum.Font.GothamMedium)
 		label.Position = UDim2.fromOffset(16, 0)
-		label.Size = UDim2.new(1, -CONTROL_RIGHT_INSET - 46 - 16 - 8, 1, 0)
+		label.Size = UDim2.new(1, -CONTROL_RIGHT_INSET - 42 - 24, 1, 0)
 		local track = componentElements.Make("Frame", {
 			AnchorPoint = Vector2.new(1, 0.5),
 			BackgroundColor3 = value and COLORS.ToggleOn or Color3.fromRGB(76, 77, 82),
@@ -894,9 +895,9 @@ function HavocLib.new(options)
 	}, Window)
 	self.Window = window
 
-	local minimumWindowSize = Vector2.new(520, 380)
+	local minimumWindowSize = Vector2.new(620, 420)
 	local maximumWindowSize = Vector2.new(1080, 820)
-	local defaultWindowSize = Vector2.new(850, 620)
+	local defaultWindowSize = Vector2.new(900, 640)
 	local root = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = COLORS.Background,
@@ -1266,11 +1267,11 @@ function HavocLib.new(options)
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 4,
-		ScrollBarImageColor3 = COLORS.Border,
-		ScrollBarImageTransparency = 0.48,
-		Position = UDim2.fromOffset(8, 12),
-		Size = UDim2.new(1, -16, 1, -24),
+		ScrollBarThickness = 3,
+		ScrollBarImageColor3 = COLORS.Muted,
+		ScrollBarImageTransparency = 0.65,
+		Position = UDim2.fromOffset(12, 10),
+		Size = UDim2.new(1, -24, 1, -20),
 	}, sidebar)
 	local tabLayout = make("UIListLayout", {
 		Padding = UDim.new(0, 6),
@@ -1615,7 +1616,7 @@ function Window:Tab(options)
 	icon.Size = UDim2.fromOffset(20, 20)
 	local label = textLabel(tabButton, options.Name, Theme.Font.Body, COLORS.Muted, Enum.Font.GothamMedium)
 	label.Position = UDim2.fromOffset(44, 0)
-	label.Size = UDim2.new(1, -56, 1, 0)
+	label.Size = UDim2.new(1, -52, 1, 0)
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	local badge = textLabel(tabButton, "", 11, COLORS.Text, Enum.Font.GothamBold)
 	badge.AnchorPoint = Vector2.new(1, 0.5)
@@ -1647,12 +1648,12 @@ function Window:Tab(options)
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		ScrollBarImageColor3 = COLORS.Border,
-		ScrollBarImageTransparency = 0.36,
-		ScrollBarThickness = 5,
+		ScrollBarImageTransparency = 0.62,
+		ScrollBarThickness = 3,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
-		Position = UDim2.fromOffset(8, 10),
-		Size = UDim2.new(1, -16, 1, -20),
+		Position = UDim2.fromOffset(12, 8),
+		Size = UDim2.new(1, -24, 1, -16),
 		Visible = false,
 	}, self.Content)
 	tab._page = page
@@ -1691,12 +1692,12 @@ function Window:Tab(options)
 		emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
 		tab._emptyState = emptyState
 	end
-	padding(page, 12, 16)
+	padding(page, 8, 10)
 	local pageLayout = make("UIListLayout", {
 		Padding = UDim.new(0, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, page)
-	setCanvasHeight(page, pageLayout, 30)
+	setCanvasHeight(page, pageLayout, 24)
 	local function updateScrollHint()
 		local maxScroll = math.max(0, page.AbsoluteCanvasSize.Y - page.AbsoluteSize.Y)
 		scrollHint.Visible = false
@@ -1802,7 +1803,7 @@ function Tab:Section(options)
 		Size = UDim2.new(1, 0, 0, 0),
 	}, self._page)
 	corner(frame, 16)
-	padding(frame, 16, 16)
+	padding(frame, 16, 14)
 	if sectionOptions.GradientColor then
 		Elements.Gradient(frame, frame.BackgroundColor3, sectionOptions.GradientColor)
 	else
@@ -1810,9 +1811,9 @@ function Tab:Section(options)
 	end
 	stroke(frame, 0.76)
 	local layout = make("UIListLayout", {
-		Padding = UDim.new(0, 12),
+		Padding = UDim.new(0, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, frame)
+	}, frame
 	local headingRow = make("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, 0, 0, 28),
@@ -2058,6 +2059,7 @@ function Section:Dropdown(options)
 	head.TextXAlignment = Enum.TextXAlignment.Left
 	padding(head, 16, 0)
 	local chevron = textLabel(holder, "⌄", 20, COLORS.Muted, Enum.Font.GothamMedium)
+	chevron.Active = false
 	chevron.AnchorPoint = Vector2.new(1, 0)
 	chevron.Position = UDim2.new(1, -12, 0, 0)
 	chevron.Size = UDim2.fromOffset(18, 36)
@@ -2200,7 +2202,6 @@ function Section:Input(options)
 		Size = UDim2.new(1, 0, 0, multiline and 104 or 72),
 	}, self._frame)
 	corner(row, 12)
-	Elements.Gradient(row, COLORS.Container, Color3.fromRGB(29, 30, 33), 90)
 	local label = textLabel(row, options.Name, Theme.Font.Label, COLORS.Text, Enum.Font.GothamMedium)
 	label.Position = UDim2.fromOffset(20, 2)
 	label.Size = UDim2.new(1, -40, 0, 25)
