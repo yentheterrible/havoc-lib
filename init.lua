@@ -3944,6 +3944,289 @@ function HavocLib:Destroy()
 	table.clear(self._notifications)
 end
 
+-- A standalone authentication page for loaders. Call before HavocLib.new().
+-- Hardcoded client-side keys are a convenience gate, not secure authorization.
+-- Hosted providers must supply their own server-backed Validate callback.
+function HavocLib.CreateKeySystem(options)
+    assert(type(options) == "table", "CreateKeySystem requires an options table")
+    -- A host may disable the gate altogether; keys are never global library defaults.
+    if options.Enabled == false then
+        local bypass = { Authenticated = true, Destroyed = true }
+        function bypass:Destroy() end
+        if type(options.OnSuccess) == "function" then
+            task.defer(options.OnSuccess, nil)
+        end
+        return bypass
+    end
+    local player = Players.LocalPlayer
+    assert(player, "CreateKeySystem must run on the client")
+    local playerGui = player:WaitForChild("PlayerGui")
+    local guiName = options.Name or "HavocKeySystem"
+    local old = playerGui:FindFirstChild(guiName)
+    if old and old:IsA("ScreenGui") then old:Destroy() end
+
+    local acceptedKeys = options.Keys or (options.Key and { options.Key }) or {}
+    assert(type(acceptedKeys) == "table", "Keys must be an array of strings")
+    local verifier = options.Validate
+    assert(verifier == nil or type(verifier) == "function", "Validate must be a function")
+    assert(#acceptedKeys > 0 or verifier ~= nil, "For an enabled key gate, provide Key, Keys, or Validate (or set Enabled=false)")
+
+    local gate = { Authenticated = false, Destroyed = false }
+    local connections = {}
+    local busy = false
+    local function connect(signal, fn)
+        local connection = signal:Connect(fn)
+        table.insert(connections, connection)
+        return connection
+    end
+    local screen = make("ScreenGui", {
+        Name = guiName, ResetOnSpawn = false, IgnoreGuiInset = true,
+        DisplayOrder = options.DisplayOrder or 1500,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    }, playerGui)
+    gate.ScreenGui = screen
+
+    local dim = make("Frame", {
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.27,
+        Size = UDim2.fromScale(1, 1),
+    }, screen)
+    local panel = make("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(390, 356),
+        BackgroundColor3 = Color3.fromRGB(24, 24, 27),
+        ClipsDescendants = true,
+    }, dim)
+    corner(panel, 17)
+    stroke(panel, 0.75)
+    local fitScale = make("UIScale", { Scale = 1 }, panel)
+    local function resize()
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+        local view = camera.ViewportSize
+        fitScale.Scale = math.clamp(math.min((view.X - 28) / 390, (view.Y - 28) / 356), 0.5, 1)
+    end
+    connect(Workspace:GetPropertyChangedSignal("CurrentCamera"), resize)
+    local viewportConnection
+    local function watchCamera()
+        if viewportConnection then viewportConnection:Disconnect() end
+        local camera = Workspace.CurrentCamera
+        if camera then viewportConnection = connect(camera:GetPropertyChangedSignal("ViewportSize"), resize) end
+        resize()
+    end
+    watchCamera()
+
+    local brand = textLabel(panel, options.Title or "havoc | key system", 19, COLORS.Text, Enum.Font.GothamBold)
+    brand.Position = UDim2.fromOffset(24, 23)
+    brand.Size = UDim2.new(1, -48, 0, 27)
+    local subtitle = textLabel(panel, options.Subtitle or "Enter your key to continue", 12, COLORS.Muted)
+    subtitle.Position = UDim2.fromOffset(24, 51)
+    subtitle.Size = UDim2.new(1, -48, 0, 22)
+    local rule = make("Frame", {
+        BackgroundColor3 = Color3.fromRGB(60, 60, 66),
+        Position = UDim2.fromOffset(24, 86),
+        Size = UDim2.new(1, -48, 0, 1),
+    }, panel)
+    local keyLabel = textLabel(panel, "LICENSE KEY", 11, COLORS.Muted, Enum.Font.GothamBold)
+    keyLabel.Position = UDim2.fromOffset(24, 106)
+    keyLabel.Size = UDim2.fromOffset(180, 18)
+    local entry = make("TextBox", {
+        Position = UDim2.fromOffset(24, 131),
+        Size = UDim2.new(1, -48, 0, 45),
+        BackgroundColor3 = Color3.fromRGB(38, 38, 42),
+        Text = "", PlaceholderText = "Paste or enter your key",
+        PlaceholderColor3 = Color3.fromRGB(156, 158, 166),
+        Font = Enum.Font.Gotham, TextSize = 14,
+        TextColor3 = COLORS.Text, TextXAlignment = Enum.TextXAlignment.Left,
+        ClearTextOnFocus = false, Selectable = true,
+    }, panel)
+    corner(entry, 10)
+    stroke(entry, 0.85)
+    padding(entry, 12, 0)
+    local status = textLabel(panel, "", 12, COLORS.Muted)
+    status.Position = UDim2.fromOffset(24, 184)
+    status.Size = UDim2.new(1, -48, 0, 29)
+    status.TextWrapped = true
+    local submit = make("TextButton", {
+        Position = UDim2.fromOffset(24, 223),
+        Size = UDim2.new(1, -48, 0, 43),
+        BackgroundColor3 = Color3.fromRGB(227, 227, 231),
+        Text = "Verify key", TextSize = 14,
+        Font = Enum.Font.GothamBold, TextColor3 = Color3.fromRGB(24, 24, 27),
+        AutoButtonColor = true,
+    }, panel)
+    corner(submit, 10)
+
+    local discordUrl = options.Discord or options.DiscordUrl
+    local discord = make("TextButton", {
+        Position = UDim2.fromOffset(24, 281),
+        Size = UDim2.new(0.5, -29, 0, 40),
+        BackgroundColor3 = Color3.fromRGB(43, 43, 48),
+        Text = "Join Discord", TextSize = 12,
+        Font = Enum.Font.GothamMedium, TextColor3 = COLORS.Text,
+        AutoButtonColor = true,
+    }, panel)
+    corner(discord, 10)
+    local getKey = make("TextButton", {
+        Position = UDim2.new(0.5, 5, 0, 281),
+        Size = UDim2.new(0.5, -29, 0, 40),
+        BackgroundColor3 = Color3.fromRGB(43, 43, 48),
+        Text = "Get key", TextSize = 12,
+        Font = Enum.Font.GothamMedium, TextColor3 = COLORS.Text,
+        AutoButtonColor = true,
+    }, panel)
+    corner(getKey, 10)
+    local hasDiscord = type(discordUrl) == "string" and discordUrl ~= ""
+    local hasGetKey = type(options.GetKeyUrl) == "string" and options.GetKeyUrl ~= ""
+        or type(options.OnGetKey) == "function"
+    discord.Visible = hasDiscord
+    getKey.Visible = hasGetKey
+    if hasDiscord and not hasGetKey then
+        discord.Size = UDim2.new(1, -48, 0, 40)
+    elseif hasGetKey and not hasDiscord then
+        getKey.Position = UDim2.fromOffset(24, 281)
+        getKey.Size = UDim2.new(1, -48, 0, 40)
+    end
+
+    function gate:Destroy()
+        if self.Destroyed then return end
+        self.Destroyed = true
+        for _, connection in ipairs(connections) do connection:Disconnect() end
+        table.clear(connections)
+        if screen.Parent then screen:Destroy() end
+    end
+    function gate:SetStatus(message, good)
+        if self.Destroyed then return end
+        status.Text = tostring(message or "")
+        status.TextColor3 = good == nil and COLORS.Muted or
+            (good and Color3.fromRGB(117, 226, 174) or Color3.fromRGB(255, 149, 149))
+    end
+    function gate:Submit(value)
+        if self.Destroyed or busy or self.Authenticated then return end
+        local key = tostring(value or entry.Text):match("^%s*(.-)%s*$")
+        if key == "" then self:SetStatus("Enter a key first.", false); return end
+        busy = true
+        submit.Text = "Checking..."
+        self:SetStatus("Validating key...")
+        task.spawn(function()
+            local valid, message = false, "Invalid key. Join Discord to get access."
+            local ok, result, detail = pcall(function()
+                for _, accepted in ipairs(acceptedKeys) do
+                    if type(accepted) == "string" and key == accepted then
+                        return true, "Key accepted."
+                    end
+                end
+                if verifier then return verifier(key) end
+                return false, "Invalid key."
+            end)
+            if ok then
+                if type(result) == "table" then
+                    valid = result.Valid == true or result.valid == true
+                    message = result.Message or result.message or message
+                else
+                    valid = result == true
+                    message = detail or (valid and "Key accepted." or message)
+                end
+            else
+                message = "Validation is unavailable. Try again."
+                warn("[Havoc KeySystem] Validator error: " .. tostring(result))
+            end
+            if gate.Destroyed then return end
+            busy = false
+            submit.Text = "Verify key"
+            gate:SetStatus(message, valid)
+            if valid then
+                gate.Authenticated = true
+                submit.Active = false
+                if type(options.OnSuccess) == "function" then
+                    local success, err = pcall(options.OnSuccess, key)
+                    if not success then
+                        warn("[Havoc KeySystem] OnSuccess error: " .. tostring(err))
+                        gate:SetStatus("Key accepted, but the hub failed to start.", false)
+                        return
+                    end
+                end
+                if options.AutoClose ~= false then gate:Destroy() end
+            end
+        end)
+    end
+    connect(submit.MouseButton1Click, function() gate:Submit() end)
+    connect(entry.FocusLost, function(enterPressed)
+        if enterPressed then gate:Submit() end
+    end)
+    local function copyLink(url)
+        local clipboard = (type(setclipboard) == "function" and setclipboard) or
+            (type(toclipboard) == "function" and toclipboard)
+        if type(clipboard) == "function" then
+            local ok = pcall(clipboard, url)
+            if ok then gate:SetStatus("Link copied. Paste it into Discord or your browser.", true); return true end
+        end
+        gate:SetStatus("Open this link: " .. url)
+        return false
+    end
+
+    -- A Roblox executor cannot guarantee launching arbitrary external URLs.
+    -- Prefer a host-provided opener, then known optional methods, then clipboard.
+    local function openLink(url, isDiscord)
+        if type(url) ~= "string" or url == "" then
+            gate:SetStatus("No link configured.", false)
+            return
+        end
+        local candidates = {}
+        local function add(fn)
+            if type(fn) == "function" then table.insert(candidates, fn) end
+        end
+        -- The caller can provide its own executor-specific implementation.
+        add(options.OpenLink)
+        local env = (type(getgenv) == "function" and getgenv()) or _G
+        if type(env) == "table" then
+            add(env.openurl)
+            add(env.open_url)
+            add(env.openbrowser)
+        end
+        if type(openurl) == "function" then add(openurl) end
+        if type(open_url) == "function" then add(open_url) end
+        -- Try the app URI first where applicable, then HTTPS for a browser.
+        local urls = {}
+        if isDiscord then
+            local code = url:match("^https?://discord%.gg/([%w%-]+)")
+                or url:match("^https?://discord%.com/invite/([%w%-]+)")
+            if code then table.insert(urls, "discord://-/invite/" .. code) end
+        end
+        table.insert(urls, url)
+        for _, candidateUrl in ipairs(urls) do
+            for _, fn in ipairs(candidates) do
+                local ok, opened = pcall(fn, candidateUrl)
+                if ok and opened ~= false then
+                    gate:SetStatus("Opening link...", true)
+                    return
+                end
+            end
+        end
+        -- Roblox sometimes restricts browser windows in an experience.
+        local ok, opened = pcall(function()
+            return GuiService:OpenBrowserWindow(url)
+        end)
+        if ok and opened ~= false then
+            gate:SetStatus("Opening link...", true)
+            return
+        end
+        copyLink(url)
+    end
+    connect(discord.MouseButton1Click, function() openLink(discordUrl, true) end)
+    connect(getKey.MouseButton1Click, function()
+        local url = options.GetKeyUrl or discordUrl
+        if type(options.OnGetKey) == "function" then
+            local ok, provided = pcall(options.OnGetKey)
+            if ok and type(provided) == "string" then url = provided end
+        end
+        openLink(url, false)
+    end)
+    return gate
+end
+
+HavocLib.KeySystem = HavocLib.CreateKeySystem
 HavocLib.Colors = COLORS
 HavocLib.Theme = Theme
 HavocLib.Design = "Reference Edition | Multi-executor + Lucide"
