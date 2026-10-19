@@ -2950,8 +2950,7 @@ function Tab:Section(options)
 		Size = UDim2.new(1, 0, 0, 0),
 	}, self._scroller)
 	corner(frame, 17)
-	-- The width cap reproduces the centered, compact cards in the reference.
-	make("UISizeConstraint", { MaxSize = Vector2.new(500, 100000) }, frame)
+	local sectionWidthConstraint = make("UISizeConstraint", { MaxSize = Vector2.new(500, 100000) }, frame)
 	padding(frame, 16, 17)
 	if sectionOptions.GradientColor then
 		Elements.Gradient(frame, frame.BackgroundColor3, sectionOptions.GradientColor)
@@ -3022,6 +3021,14 @@ function Tab:Section(options)
 	end
 	headingRow:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateDivider)
 	updateDivider()
+	local function updateSectionWidth()
+		local availableWidth = math.max(self._page.AbsoluteSize.X - 48, 320)
+		local targetWidth = math.clamp(availableWidth, 500, 760)
+		sectionWidthConstraint.MaxSize = Vector2.new(targetWidth, 100000)
+	end
+	self._page:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateSectionWidth)
+	task.defer(updateSectionWidth)
+
 	local section = setmetatable({
 		_tab = self,
 		_window = self._window,
