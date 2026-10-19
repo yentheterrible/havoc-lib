@@ -1346,38 +1346,38 @@ function HavocLib.new(options)
 		Active = true,
 		AnchorPoint = Vector2.new(1, 1),
 		AutoButtonColor = false,
-		BackgroundColor3 = COLORS.Interactive,
+		BackgroundColor3 = Color3.fromRGB(22, 23, 28),
 		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -5, 1, -5),
+		Position = UDim2.new(1, -10, 1, -10),
 		Selectable = true,
-		Size = UDim2.fromOffset(26, 26),
+		Size = UDim2.fromOffset(22, 22),
 		Text = "",
 		ZIndex = 30,
 	}, root)
-	corner(resizeGrip, 12)
+	corner(resizeGrip, 10)
 	local resizeStroke = stroke(resizeGrip, 1)
 	local resizeMark = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(12, 12),
+		Size = UDim2.fromOffset(10, 10),
 		ZIndex = resizeGrip.ZIndex + 1,
 	}, resizeGrip)
 	for index = 0, 2 do
 		local line = make("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = Color3.fromRGB(155, 155, 162),
+			BackgroundColor3 = Color3.fromRGB(170, 170, 178),
 			BorderSizePixel = 0,
-			Position = UDim2.new(0.5, (index - 1) * 4, 0.5, (index - 1) * 4),
+			Position = UDim2.new(0.5, (index - 1) * 3, 0.5, (index - 1) * 3),
 			Rotation = -45,
-			Size = UDim2.fromOffset(2, 5),
+			Size = UDim2.fromOffset(1, 5),
 			ZIndex = resizeMark.ZIndex + 1,
 		}, resizeMark)
 		corner(line, 1)
 	end
 	resizeGrip.MouseEnter:Connect(function()
 		tween(resizeGrip, Theme.HoverDuration, {
-			BackgroundTransparency = 0.15,
+			BackgroundTransparency = 0.35,
 		})
 		tween(resizeStroke, Theme.HoverDuration, {
 			Color = COLORS.Primary,
