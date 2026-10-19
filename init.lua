@@ -2491,6 +2491,99 @@ function HavocLib.new(options)
 		window:SetVisible(false)
 	end)
 
+	-- Touch-only floating launcher. This belongs directly to ScreenGui instead of
+	-- Root, so hiding the window never hides the control needed to reopen it.
+	-- TouchEnabled is Roblox's capability check; don't show a mobile launcher
+	-- on ordinary mouse/keyboard-only desktops.
+	if UserInputService.TouchEnabled and config.MobileToggleEnabled ~= false then
+		local diameter = 48
+		local screenInset = 12
+		local launcher = make("TextButton", {
+			Name = "HavocMobileToggle",
+			Active = true,
+			AutoButtonColor = false,
+			BackgroundColor3 = Color3.fromRGB(31, 31, 35),
+			BackgroundTransparency = 0.08,
+			AnchorPoint = Vector2.new(0, 0),
+			Position = UDim2.new(0, screenInset, 0.5, -diameter / 2),
+			Size = UDim2.fromOffset(diameter, diameter),
+			Text = "h",
+			Font = Enum.Font.GothamBold,
+			TextColor3 = COLORS.Text,
+			TextSize = 22,
+			Selectable = false,
+			ZIndex = 100,
+		}, screen)
+		corner(launcher, 14)
+		local launcherOutline = stroke(launcher, 0.6)
+		launcherOutline.Thickness = 1
+		window.MobileToggle = launcher
+
+		local activeTouch = nil
+		local touchOrigin = nil
+		local buttonOrigin = nil
+		local dragged = false
+		local function clampLauncher(pos)
+			local camera = Workspace.CurrentCamera
+			local bounds = camera and camera.ViewportSize or Vector2.new(1920, 1080)
+			return Vector2.new(
+				math.clamp(pos.X, screenInset, math.max(screenInset, bounds.X - diameter - screenInset)),
+				math.clamp(pos.Y, screenInset, math.max(screenInset, bounds.Y - diameter - screenInset))
+			)
+		end
+		local function moveLauncher(position)
+			launcher.Position = UDim2.fromOffset(position.X, position.Y)
+		end
+		launcher.InputBegan:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.Touch or activeTouch ~= nil then return end
+			activeTouch = input
+			touchOrigin = Vector2.new(input.Position.X, input.Position.Y)
+			buttonOrigin = Vector2.new(launcher.AbsolutePosition.X, launcher.AbsolutePosition.Y)
+			dragged = false
+		end)
+		table.insert(window._connections, UserInputService.InputChanged:Connect(function(input)
+			if input ~= activeTouch or touchOrigin == nil then return end
+			local delta = Vector2.new(input.Position.X, input.Position.Y) - touchOrigin
+			if delta.Magnitude > 8 then dragged = true end
+			if dragged then moveLauncher(clampLauncher(buttonOrigin + delta)) end
+		end))
+		table.insert(window._connections, UserInputService.InputEnded:Connect(function(input)
+			if input ~= activeTouch then return end
+			-- A drag only repositions the launcher; a tap toggles visibility.
+			if not dragged and not self._destroyed then
+				window:SetVisible(not window._visible)
+			end
+			activeTouch = nil
+			touchOrigin = nil
+			buttonOrigin = nil
+		end))
+		-- Re-clamp after rotation/viewport resizing to avoid losing the button.
+		local viewportChanged = nil
+		local function bindViewport()
+			if viewportChanged then
+				viewportChanged:Disconnect()
+				viewportChanged = nil
+			end
+			local camera = Workspace.CurrentCamera
+			if camera then
+				viewportChanged = camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+					moveLauncher(clampLauncher(launcher.AbsolutePosition))
+				end)
+			end
+		end
+		bindViewport()
+		table.insert(window._connections, Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindViewport))
+		table.insert(window._connections, {
+			Disconnect = function()
+				if viewportChanged then viewportChanged:Disconnect() end
+			end,
+		})
+		-- Reposition from the initial relative position after AbsoluteSize resolves.
+		task.defer(function()
+			if launcher.Parent then moveLauncher(clampLauncher(launcher.AbsolutePosition)) end
+		end)
+	end
+
 	-- Default show/hide shortcut. Ignore keys consumed by Roblox, including chat,
 	-- and ignore all focused TextBoxes (including the library's own search field).
 	window.ToggleKey = config.ToggleKey == nil and Enum.KeyCode.K or config.ToggleKey
