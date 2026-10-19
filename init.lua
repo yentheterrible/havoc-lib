@@ -44,7 +44,7 @@ Theme.HoverDuration = 0.2
 Theme.PressScale = 0.985
 Theme.OpenScale = 0.95
 Theme.Padding = 16
-Theme.Font = { Caption = 12, Body = 14, Label = 14, Heading = 16 }
+Theme.Font = { Caption = 13, Body = 14, Label = 14, Heading = 16 }
 Theme.Animation = {
 	Hover = TweenInfo.new(Theme.HoverDuration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 	Press = TweenInfo.new(0.12, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
@@ -1081,16 +1081,18 @@ function HavocLib.new(options)
 	end
 	local title = textLabel(header, config.Title or "havoc lib", 14, COLORS.Text, Enum.Font.GothamBold)
 	title.Position = UDim2.fromOffset(43, 5)
-	title.Size = UDim2.new(0, 156, 0, 24)
+	title.Size = UDim2.new(0, 176, 0, 24)
+	title.TextTruncate = Enum.TextTruncate.AtEnd
 	title.TextSize = 17
 	local subtitle = textLabel(header, config.Subtitle or "made by convict", 11, Color3.fromRGB(200, 200, 205))
 	subtitle.Position = UDim2.fromOffset(43, 30)
-	subtitle.Size = UDim2.new(0, 156, 0, 17)
+	subtitle.Size = UDim2.new(0, 176, 0, 17)
+	subtitle.TextTruncate = Enum.TextTruncate.AtEnd
 	local statusPill = make("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
 		BackgroundColor3 = Color3.fromRGB(20, 34, 30),
 		BorderSizePixel = 0,
-		Position = UDim2.new(0, 277, 0.5, 0),
+		Position = UDim2.new(0, 301, 0.5, 0),
 		Size = UDim2.fromOffset(57, 19),
 		Visible = config.ShowStatus == true,
 	}, header)
@@ -1103,14 +1105,14 @@ function HavocLib.new(options)
 		Size = UDim2.fromOffset(6, 6),
 	}, statusPill)
 	corner(statusDot, 99)
-	local statusLabel = textLabel(statusPill, "live", 10, Color3.fromRGB(175, 255, 215), Enum.Font.GothamBold)
+	local statusLabel = textLabel(statusPill, "live", 11, Color3.fromRGB(175, 255, 215), Enum.Font.GothamBold)
 	statusLabel.Position = UDim2.fromOffset(17, 0)
 	statusLabel.Size = UDim2.new(1, -17, 1, 0)
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 	statusLabel.TextColor3 = Color3.fromRGB(185, 255, 219)
 	local version = textLabel(header, config.Version or "", 10, COLORS.Muted, Enum.Font.GothamMedium)
 	version.AnchorPoint = Vector2.new(0, 0.5)
-	version.Position = UDim2.new(0, 204, 0.5, 0)
+	version.Position = UDim2.new(0, 228, 0.5, 0)
 	version.Size = UDim2.fromOffset(64, 25)
 	version.Visible = config.Version ~= nil
 	version.BackgroundColor3 = Color3.fromRGB(36, 36, 39)
@@ -1155,10 +1157,22 @@ function HavocLib.new(options)
 	window.SearchBox = search
 	local function updateHeaderLayout()
 		local width = root.AbsoluteSize.X / math.max(responsiveScale.Scale * rootScale.Scale, 0.01)
-		version.Visible = width >= 545 and config.Version ~= nil
-		statusPill.Visible = width >= 755 and config.ShowStatus == true
-		search.Visible = config.SearchEnabled == true and width >= 650
-		search.Size = UDim2.new(0, math.clamp(width * 0.24, 146, 220), 0, 33)
+		local labelWidth = TextService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1000, 26)).X
+		local metadataX = math.clamp(43 + labelWidth + 13, 190, 300)
+		title.Size = UDim2.fromOffset(math.max(90, metadataX - 53), 24)
+		subtitle.Size = UDim2.fromOffset(math.max(90, metadataX - 53), 17)
+		version.Position = UDim2.new(0, metadataX, 0.5, 0)
+		statusPill.Position = UDim2.new(0, metadataX + 72, 0.5, 0)
+		local actionsStart = width - 118
+		local searchWidth = math.clamp(width * 0.24, 150, 205)
+		local searchStart = actionsStart - 18 - searchWidth
+		local metadataEnd = metadataX + (config.Version ~= nil and 64 or 0)
+		version.Visible = config.Version ~= nil and metadataX + 64 < actionsStart - 12
+		metadataEnd = version.Visible and metadataX + 64 or metadataX
+		statusPill.Visible = config.ShowStatus == true and metadataEnd + 70 < searchStart - 14
+		search.Visible = config.SearchEnabled == true and searchStart > metadataEnd + (statusPill.Visible and 80 or 14)
+		search.Size = UDim2.fromOffset(searchWidth, 33)
+		-- Hide search at compact widths rather than overlap version/title.
 	end
 	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateHeaderLayout)
 	responsiveScale:GetPropertyChangedSignal("Scale"):Connect(updateHeaderLayout)
@@ -1177,7 +1191,7 @@ function HavocLib.new(options)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, windowActions)
 	local minimizeButton = button(windowActions, "−", UDim2.fromOffset(30, 32), COLORS.Interactive, true)
-	minimizeButton.TextSize = 18
+	minimizeButton.TextSize = 20
 	minimizeButton.LayoutOrder = 1
 	local maximizeButton = button(windowActions, "□", UDim2.fromOffset(30, 32), COLORS.Interactive, true)
 	maximizeButton.Text = ""
@@ -1191,7 +1205,7 @@ function HavocLib.new(options)
 	corner(maximizeGlyph, 2)
 	stroke(maximizeGlyph, 0.22)
 	local closeButton = button(windowActions, "×", UDim2.fromOffset(30, 32), COLORS.Interactive, true)
-	closeButton.TextSize = 18
+	closeButton.TextSize = 20
 	closeButton.LayoutOrder = 3
 	for _, actionButton in ipairs({ minimizeButton, maximizeButton, closeButton }) do
 		actionButton.BackgroundTransparency = 1
@@ -1271,7 +1285,7 @@ function HavocLib.new(options)
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 2,
+		ScrollBarThickness = 0,
 		ScrollBarImageColor3 = COLORS.Border,
 		ScrollBarImageTransparency = 0.84,
 		Position = UDim2.fromOffset(13, 14),
@@ -1306,7 +1320,7 @@ function HavocLib.new(options)
 	
 	local function updateSidebarWidth()
 		local sizeX = root.AbsoluteSize.X / math.max(responsiveScale.Scale * rootScale.Scale, 0.01)
-		local newWidth = math.clamp(math.floor(sizeX * 0.34), 224, 256)
+		local newWidth = math.clamp(math.floor(sizeX * 0.335), 210, 230)
 		sidebar.Size = UDim2.new(0, newWidth, 1, 0)
 		sidebarDivider.Position = UDim2.new(0, newWidth - 1, 0, 0)
 		content.Position = UDim2.new(0, newWidth, 0, 0)
@@ -1666,31 +1680,16 @@ function Window:Tab(options)
 		CanvasSize = UDim2.new(),
 		ScrollBarImageColor3 = COLORS.Border,
 		ScrollBarImageTransparency = 0.84,
-		ScrollBarThickness = 3,
+		ScrollBarThickness = 0,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
-		VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar,
+		VerticalScrollBarInset = Enum.ScrollBarInset.None,
 		Position = UDim2.fromOffset(12, 0),
 		Size = UDim2.new(1, -24, 1, 0),
 		Visible = false,
 	}, self.Content)
 	tab._page = page
-	local scrollHint = make("TextLabel", {
-		Active = false,
-		AnchorPoint = Vector2.new(0.5, 1),
-		BackgroundColor3 = Color3.fromRGB(37, 38, 42),
-		BackgroundTransparency = 0.06,
-		BorderSizePixel = 0,
-		Font = Enum.Font.GothamMedium,
-		Position = UDim2.new(0.5, 0, 1, -7),
-		Size = UDim2.fromOffset(142, 25),
-		Text = "Scroll for more  ↓",
-		TextColor3 = Color3.fromRGB(220, 222, 227),
-		TextSize = 11,
-		Visible = false,
-		ZIndex = page.ZIndex + 2,
-	}, self.Content)
-	corner(scrollHint, 12)
-	scrollHint.Visible = false -- Native scrollbar replaces the floating overlay.
+	-- Compatibility placeholder: no floating scroll UI is rendered.
+	local scrollHint = { Visible = false }
 	tab._scrollHint = scrollHint
 	if type(options.EmptyText) == "string" and options.EmptyText ~= "" then
 		local emptyState = make("Frame", {
@@ -1709,7 +1708,7 @@ function Window:Tab(options)
 		emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
 		tab._emptyState = emptyState
 	end
-	padding(page, 10, 30)
+	padding(page, 12, 24)
 	local pageLayout = make("UIListLayout", {
 		Padding = UDim.new(0, 20),
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -1822,7 +1821,7 @@ function Tab:Section(options)
 	}, self._page)
 	corner(frame, 17)
 	-- The width cap reproduces the centered, compact cards in the reference.
-	make("UISizeConstraint", { MaxSize = Vector2.new(536, 100000) }, frame)
+	make("UISizeConstraint", { MaxSize = Vector2.new(490, 100000) }, frame)
 	padding(frame, 18, 18)
 	if sectionOptions.GradientColor then
 		Elements.Gradient(frame, frame.BackgroundColor3, sectionOptions.GradientColor)
@@ -2090,7 +2089,7 @@ function Section:Dropdown(options)
 		AutomaticCanvasSize = Enum.AutomaticSize.None,
 		CanvasSize = UDim2.new(),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
-		ScrollBarThickness = 2,
+		ScrollBarThickness = 0,
 		ScrollBarImageColor3 = COLORS.Border,
 		ScrollBarImageTransparency = 0.55,
 		AutomaticSize = Enum.AutomaticSize.None,
