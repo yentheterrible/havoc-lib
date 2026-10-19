@@ -305,9 +305,10 @@ local Elements = (function()
 			LayoutOrder = options.LayoutOrder or 0,
 			Size = UDim2.new(1, 0, 0, 0),
 			Text = options.Content or "",
-			TextColor3 = options.Color or COLORS.Muted,
-			TextSize = options.TextSize or Theme.Font.Body,
+			TextColor3 = options.Color or Color3.fromRGB(201, 202, 210),
+			TextSize = math.max(13, options.TextSize or Theme.Font.Body),
 			TextWrapped = true,
+			LineHeight = options.LineHeight or 1.17,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Top,
 			RichText = options.RichText == true,
@@ -888,6 +889,13 @@ function HavocLib.new(options)
 	local player = Players.LocalPlayer
 	assert(player, "Havoc Lib must be initialized on the client")
 	local playerGui = player:WaitForChild("PlayerGui")
+	-- Avoid stacking earlier versions when the hub is reloaded.
+	if config.ReplaceExisting ~= false then
+		local previousGui = playerGui:FindFirstChild(config.Name or "havoc lib")
+		if previousGui and previousGui:IsA("ScreenGui") then
+			previousGui:Destroy()
+		end
+	end
 
 	local self = setmetatable({}, HavocLib)
 	self._startedAt = os.clock()
@@ -1158,8 +1166,9 @@ function HavocLib.new(options)
 		TextSize = 14,
 		TextXAlignment = Enum.TextXAlignment.Left,
 	}, header)
-	search.Visible = config.SearchEnabled == true
+	search.Visible = false
 	search.BackgroundTransparency = 0.08
+	search.ZIndex = 11
 	corner(search, 12)
 	local searchStroke = stroke(search)
 	search.Focused:Connect(function()
@@ -1176,6 +1185,42 @@ function HavocLib.new(options)
 	end)
 	padding(search, 10, 0)
 	window.SearchBox = search
+	-- Search is a compact icon until there is room for the entire header.
+	-- Focusing it temporarily replaces LIVE, not the version/title.
+	local searchExpanded = false
+	local searchToggle = button(header, "⌕", UDim2.fromOffset(30, 32), COLORS.Interactive, true)
+	searchToggle.Name = "OpenSearch"
+	searchToggle.AnchorPoint = Vector2.new(1, 0.5)
+	searchToggle.Position = UDim2.new(1, -121, 0.5, 0)
+	searchToggle.BackgroundTransparency = 1
+	searchToggle.Text = ""
+	searchToggle.ZIndex = 9
+	local searchRing = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(13, 14),
+		Size = UDim2.fromOffset(12, 12),
+	}, searchToggle)
+	corner(searchRing, 20)
+	local searchRingStroke = stroke(searchRing, 0)
+	searchRingStroke.Color = COLORS.Icon
+	searchRingStroke.Thickness = 1.4
+	local searchHandle = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = COLORS.Icon,
+		Position = UDim2.fromOffset(20, 21),
+		Rotation = 45,
+		Size = UDim2.fromOffset(7, 1.5),
+	}, searchToggle)
+	corner(searchHandle, 2)
+	local searchToggleStroke = searchToggle:FindFirstChildOfClass("UIStroke")
+	if searchToggleStroke then searchToggleStroke.Transparency = 1 end
+	searchToggle.MouseEnter:Connect(function()
+		tween(searchToggle, Theme.HoverDuration, { BackgroundTransparency = 0.62 })
+	end)
+	searchToggle.MouseLeave:Connect(function()
+		tween(searchToggle, Theme.HoverDuration, { BackgroundTransparency = 1 })
+	end)
 	local function updateHeaderLayout()
 		local width = root.AbsoluteSize.X / math.max(responsiveScale.Scale * rootScale.Scale, 0.01)
 		local labelWidth = TextService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1000, 26)).X
@@ -1183,18 +1228,33 @@ function HavocLib.new(options)
 		title.Size = UDim2.fromOffset(math.max(90, metadataX - 53), 24)
 		subtitle.Size = UDim2.fromOffset(math.max(90, metadataX - 53), 17)
 		version.Position = UDim2.new(0, metadataX, 0.5, 0)
-		statusPill.Position = UDim2.new(0, metadataX + 82, 0.5, 0)
+		statusPill.Position = UDim2.new(0, metadataX + (normalizedVersionLabel and 82 or 0), 0.5, 0)
 		local actionsStart = width - 114
-		local searchWidth = math.clamp(width * 0.21, 145, 190)
-		local searchStart = actionsStart - 18 - searchWidth
-		local metadataEnd = metadataX + (normalizedVersionLabel ~= nil and 74 or 0)
-		version.Visible = normalizedVersionLabel ~= nil and metadataX + 64 < actionsStart - 12
-		metadataEnd = version.Visible and metadataX + 74 or metadataX
-		statusPill.Visible = config.ShowStatus == true and metadataEnd + 67 < searchStart - 12
-		search.Visible = config.SearchEnabled == true and searchStart > metadataEnd + (statusPill.Visible and 84 or 16)
+		local searchWidth = math.clamp(width * 0.23, 165, 200)
+		local searchStart = actionsStart - 12 - searchWidth
+		local versionEnd = metadataX + (normalizedVersionLabel and 74 or 0)
+		version.Visible = normalizedVersionLabel ~= nil and versionEnd < actionsStart - 50
+		if not version.Visible then versionEnd = metadataX end
+		local statusEnd = versionEnd + (version.Visible and 8 or 0) + 57
+		local canShowLive = config.ShowStatus == true and statusEnd + 44 < actionsStart
+		local fullSearch = config.SearchEnabled == true and width >= 780 and searchStart >= statusEnd + 20
+		local expandedSearch = config.SearchEnabled == true and searchExpanded and not fullSearch
+		statusPill.Visible = canShowLive and not expandedSearch
 		search.Size = UDim2.fromOffset(searchWidth, 33)
-		-- Hide search at compact widths rather than overlap version/title.
+		search.Visible = fullSearch or (expandedSearch and searchStart > versionEnd + 8)
+		searchToggle.Visible = config.SearchEnabled == true and not fullSearch and not search.Visible
 	end
+	searchToggle.MouseButton1Click:Connect(function()
+		searchExpanded = true
+		updateHeaderLayout()
+		if search.Visible then task.defer(function() search:CaptureFocus() end) end
+	end)
+	search.FocusLost:Connect(function()
+		if searchExpanded then
+			searchExpanded = false
+			updateHeaderLayout()
+		end
+	end)
 	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateHeaderLayout)
 	responsiveScale:GetPropertyChangedSignal("Scale"):Connect(updateHeaderLayout)
 	task.defer(updateHeaderLayout)
@@ -1300,21 +1360,28 @@ function HavocLib.new(options)
 	squareCornerFill(sidebar, UDim2.new(0, 0, 0, 0), sidebar.BackgroundColor3, 18)
 	squareCornerFill(sidebar, UDim2.new(1, -18, 0, 0), sidebar.BackgroundColor3, 18)
 	squareCornerFill(sidebar, UDim2.new(1, -18, 1, -18), sidebar.BackgroundColor3, 18)
+	local tabViewport = make("Frame", {
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		Position = UDim2.fromOffset(13, 14),
+		Size = UDim2.new(1, -26, 1, -28),
+	}, sidebar)
 	local tabList = make("ScrollingFrame", {
 		Active = true,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollingEnabled = true,
 		ScrollBarThickness = 0,
-		ScrollBarImageColor3 = COLORS.Border,
 		ScrollBarImageTransparency = 1,
 		TopImage = "",
 		MidImage = "",
 		BottomImage = "",
-		Position = UDim2.fromOffset(13, 14),
-		Size = UDim2.new(1, -26, 1, -28),
-	}, sidebar)
+		VerticalScrollBarInset = Enum.ScrollBarInset.None,
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(1, 18, 1, 0),
+	}, tabViewport)
 	local tabLayout = make("UIListLayout", {
 		Padding = UDim.new(0, 3),
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1360,7 +1427,7 @@ function HavocLib.new(options)
 		Size = UDim2.new(1, 0, 0, 24),
 		Visible = config.ShowMetrics == true,
 	}, root)
-	local statusText = textLabel(status, "fps --  |  ping -- ms  |  runtime 0s", 11, COLORS.Muted)
+	local statusText = textLabel(status, "fps --  |  ping -- ms  |  runtime 0s", 12, COLORS.Muted)
 	statusText.Position = UDim2.new(0, 17, 0, 0)
 	statusText.Size = UDim2.new(1, -34, 1, 0)
 	window._statusText = statusText
@@ -1372,7 +1439,7 @@ function HavocLib.new(options)
 		AutoButtonColor = false,
 		BackgroundTransparency = 1,
 		Position = UDim2.new(1, -6, 1, -6),
-		Selectable = true,
+		Selectable = false,
 		Size = UDim2.fromOffset(28, 28),
 		Text = "",
 		ZIndex = 30,
@@ -1569,7 +1636,7 @@ function Window:Tab(options)
 	if type(options.CaptionBefore) == "string" and options.CaptionBefore ~= "" then
 		local caption = make("Frame", {
 			BackgroundTransparency = 1,
-			Size = UDim2.new(1, 0, 0, 31),
+			Size = UDim2.new(1, -18, 0, 31),
 		}, self._tabList)
 		local captionLabel = textLabel(caption, options.CaptionBefore, 12, COLORS.Muted)
 		captionLabel.Position = UDim2.new(0, 10, 0, 12)
@@ -1581,7 +1648,7 @@ function Window:Tab(options)
 		AutoButtonColor = false,
 		BackgroundColor3 = COLORS.Container,
 		BorderSizePixel = 0,
-		Size = UDim2.new(1, 0, 0, 42),
+		Size = UDim2.new(1, -18, 0, 42),
 		Text = "",
 	}, self._tabList)
 	tab._button = tabButton
@@ -1646,35 +1713,41 @@ function Window:Tab(options)
 	indicator.Visible = false
 	tab._indicator = indicator
 
+	local pageViewport = make("Frame", {
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		Position = UDim2.fromOffset(12, 0),
+		Size = UDim2.new(1, -24, 1, 0),
+		Visible = false,
+	}, self.Content)
 	local page = make("ScrollingFrame", {
 		Active = true,
 		AutomaticCanvasSize = Enum.AutomaticSize.None,
-		BackgroundColor3 = Color3.fromRGB(26, 26, 27),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
-		ScrollBarImageColor3 = COLORS.Border,
 		ScrollBarImageTransparency = 1,
 		TopImage = "",
 		MidImage = "",
 		BottomImage = "",
 		ScrollBarThickness = 0,
+		ScrollingEnabled = true,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		VerticalScrollBarInset = Enum.ScrollBarInset.None,
-		Position = UDim2.fromOffset(12, 0),
-		Size = UDim2.new(1, -24, 1, 0),
-		Visible = false,
-	}, self.Content)
-	tab._page = page
-	-- Compatibility placeholder: no floating scroll UI is rendered.
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(1, 18, 1, 0),
+	}, pageViewport)
+	tab._page = pageViewport
+	tab._scroller = page
+	-- Compatibility with older callers; no visible scroll hint is created.
 	local scrollHint = { Visible = false }
 	tab._scrollHint = scrollHint
 	if type(options.EmptyText) == "string" and options.EmptyText ~= "" then
 		local emptyState = make("Frame", {
 			Active = false,
 			BackgroundTransparency = 1,
-			Position = page.Position,
-			Size = page.Size,
+			Position = pageViewport.Position,
+			Size = pageViewport.Size,
 			Visible = false,
 			ZIndex = page.ZIndex + 1,
 		}, self.Content)
@@ -1686,22 +1759,17 @@ function Window:Tab(options)
 		emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
 		tab._emptyState = emptyState
 	end
-	padding(page, 12, 24)
+	local pagePadding = padding(page, 12, 22)
+	pagePadding.PaddingRight = UDim.new(0, 30)
 	local pageLayout = make("UIListLayout", {
 		Padding = UDim.new(0, 20),
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, page)
-	setCanvasHeight(page, pageLayout, 14)
-	local function updateScrollHint()
-		local maxScroll = math.max(0, page.AbsoluteCanvasSize.Y - page.AbsoluteSize.Y)
+	setCanvasHeight(page, pageLayout, 38)
+	tab._updateScrollHint = function()
 		scrollHint.Visible = false
 	end
-	tab._updateScrollHint = updateScrollHint
-	page:GetPropertyChangedSignal("CanvasPosition"):Connect(updateScrollHint)
-	page:GetPropertyChangedSignal("CanvasSize"):Connect(updateScrollHint)
-	page:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateScrollHint)
-	page:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updateScrollHint)
 
 	tab._matches = function(query)
 		if string.find(string.lower(tab._name), query, 1, true) then return true end
@@ -1796,17 +1864,17 @@ function Tab:Section(options)
 		BackgroundTransparency = Theme.PanelTransparency,
 		BorderSizePixel = 0,
 		Size = UDim2.new(1, 0, 0, 0),
-	}, self._page)
+	}, self._scroller)
 	corner(frame, 17)
 	-- The width cap reproduces the centered, compact cards in the reference.
-	make("UISizeConstraint", { MaxSize = Vector2.new(476, 100000) }, frame)
-	padding(frame, 18, 18)
+	make("UISizeConstraint", { MaxSize = Vector2.new(500, 100000) }, frame)
+	padding(frame, 16, 17)
 	if sectionOptions.GradientColor then
 		Elements.Gradient(frame, frame.BackgroundColor3, sectionOptions.GradientColor)
 	else
 		Elements.Gradient(frame, Color3.fromRGB(36, 36, 39), frame.BackgroundColor3, 90)
 	end
-	stroke(frame, 0.79)
+	stroke(frame, 0.78)
 	local layout = make("UIListLayout", {
 		Padding = UDim.new(0, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
