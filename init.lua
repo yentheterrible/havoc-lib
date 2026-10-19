@@ -7,10 +7,30 @@ local Workspace = game:GetService("Workspace")
 
 local Theme = {}
 local CONTROL_RIGHT_INSET = 14
-local SIDEBAR_WIDTH = 240
+local SIDEBAR_WIDTH = 220
 
 local function isFiniteNumber(value)
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+local function normalizeVersionLabel(value)
+	if value == nil then
+		return nil
+	end
+	local textValue = tostring(value)
+	if textValue == "" then
+		return nil
+	end
+	if textValue:match("^[vV]") then
+		return textValue
+	end
+	if textValue:match("^%d+$") then
+		return "v" .. textValue .. ".0.0"
+	end
+	if textValue:match("^%d+%.%d+$") or textValue:match("^%d+%.%d+%.%d+$") then
+		return "v" .. textValue
+	end
+	return "v" .. textValue
 end
 
 Theme.Colors = {
@@ -25,7 +45,7 @@ Theme.Colors = {
 	ToggleOn = Color3.fromRGB(207, 207, 214),
 	Border = Color3.fromRGB(75, 76, 83),
 	Text = Color3.fromRGB(242, 242, 245),
-	Muted = Color3.fromRGB(180, 181, 189),
+	Muted = Color3.fromRGB(192, 193, 201),
 	Icon = Color3.fromRGB(176, 177, 185),
 	Success = Color3.fromRGB(105, 225, 172),
 	Glow = Color3.fromRGB(227, 227, 231),
@@ -44,7 +64,7 @@ Theme.HoverDuration = 0.2
 Theme.PressScale = 0.985
 Theme.OpenScale = 0.95
 Theme.Padding = 16
-Theme.Font = { Caption = 13, Body = 14, Label = 14, Heading = 16 }
+Theme.Font = { Caption = 13, Body = 14, Label = 14, Heading = 17 }
 Theme.Animation = {
 	Hover = TweenInfo.new(Theme.HoverDuration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 	Press = TweenInfo.new(0.12, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
@@ -1110,11 +1130,12 @@ function HavocLib.new(options)
 	statusLabel.Size = UDim2.new(1, -17, 1, 0)
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 	statusLabel.TextColor3 = Color3.fromRGB(185, 255, 219)
-	local version = textLabel(header, config.Version or "", 10, COLORS.Muted, Enum.Font.GothamMedium)
+	local normalizedVersionLabel = normalizeVersionLabel(config.Version)
+	local version = textLabel(header, normalizedVersionLabel or "", 10, COLORS.Muted, Enum.Font.GothamMedium)
 	version.AnchorPoint = Vector2.new(0, 0.5)
 	version.Position = UDim2.new(0, 228, 0.5, 0)
-	version.Size = UDim2.fromOffset(64, 25)
-	version.Visible = config.Version ~= nil
+	version.Size = UDim2.fromOffset(74, 25)
+	version.Visible = normalizedVersionLabel ~= nil
 	version.BackgroundColor3 = Color3.fromRGB(36, 36, 39)
 	version.TextColor3 = Color3.fromRGB(232, 232, 235)
 	corner(version, 10)
@@ -1158,19 +1179,19 @@ function HavocLib.new(options)
 	local function updateHeaderLayout()
 		local width = root.AbsoluteSize.X / math.max(responsiveScale.Scale * rootScale.Scale, 0.01)
 		local labelWidth = TextService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1000, 26)).X
-		local metadataX = math.clamp(43 + labelWidth + 13, 190, 300)
+		local metadataX = math.clamp(43 + labelWidth + 16, 188, 308)
 		title.Size = UDim2.fromOffset(math.max(90, metadataX - 53), 24)
 		subtitle.Size = UDim2.fromOffset(math.max(90, metadataX - 53), 17)
 		version.Position = UDim2.new(0, metadataX, 0.5, 0)
-		statusPill.Position = UDim2.new(0, metadataX + 72, 0.5, 0)
-		local actionsStart = width - 118
-		local searchWidth = math.clamp(width * 0.24, 150, 205)
+		statusPill.Position = UDim2.new(0, metadataX + 82, 0.5, 0)
+		local actionsStart = width - 114
+		local searchWidth = math.clamp(width * 0.21, 145, 190)
 		local searchStart = actionsStart - 18 - searchWidth
-		local metadataEnd = metadataX + (config.Version ~= nil and 64 or 0)
-		version.Visible = config.Version ~= nil and metadataX + 64 < actionsStart - 12
-		metadataEnd = version.Visible and metadataX + 64 or metadataX
-		statusPill.Visible = config.ShowStatus == true and metadataEnd + 70 < searchStart - 14
-		search.Visible = config.SearchEnabled == true and searchStart > metadataEnd + (statusPill.Visible and 80 or 14)
+		local metadataEnd = metadataX + (normalizedVersionLabel ~= nil and 74 or 0)
+		version.Visible = normalizedVersionLabel ~= nil and metadataX + 64 < actionsStart - 12
+		metadataEnd = version.Visible and metadataX + 74 or metadataX
+		statusPill.Visible = config.ShowStatus == true and metadataEnd + 67 < searchStart - 12
+		search.Visible = config.SearchEnabled == true and searchStart > metadataEnd + (statusPill.Visible and 84 or 16)
 		search.Size = UDim2.fromOffset(searchWidth, 33)
 		-- Hide search at compact widths rather than overlap version/title.
 	end
@@ -1287,7 +1308,10 @@ function HavocLib.new(options)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 0,
 		ScrollBarImageColor3 = COLORS.Border,
-		ScrollBarImageTransparency = 0.84,
+		ScrollBarImageTransparency = 1,
+		TopImage = "",
+		MidImage = "",
+		BottomImage = "",
 		Position = UDim2.fromOffset(13, 14),
 		Size = UDim2.new(1, -26, 1, -28),
 	}, sidebar)
@@ -1336,7 +1360,7 @@ function HavocLib.new(options)
 		Size = UDim2.new(1, 0, 0, 24),
 		Visible = config.ShowMetrics == true,
 	}, root)
-	local statusText = textLabel(status, "fps --  |  ping -- ms  |  runtime 0s", 10, COLORS.Muted)
+	local statusText = textLabel(status, "fps --  |  ping -- ms  |  runtime 0s", 11, COLORS.Muted)
 	statusText.Position = UDim2.new(0, 17, 0, 0)
 	statusText.Size = UDim2.new(1, -34, 1, 0)
 	window._statusText = statusText
@@ -1346,53 +1370,13 @@ function HavocLib.new(options)
 		Active = true,
 		AnchorPoint = Vector2.new(1, 1),
 		AutoButtonColor = false,
-		BackgroundColor3 = Color3.fromRGB(22, 23, 28),
 		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -10, 1, -10),
+		Position = UDim2.new(1, -6, 1, -6),
 		Selectable = true,
-		Size = UDim2.fromOffset(22, 22),
+		Size = UDim2.fromOffset(28, 28),
 		Text = "",
 		ZIndex = 30,
 	}, root)
-	corner(resizeGrip, 10)
-	local resizeStroke = stroke(resizeGrip, 1)
-	local resizeMark = make("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(10, 10),
-		ZIndex = resizeGrip.ZIndex + 1,
-	}, resizeGrip)
-	for index = 0, 2 do
-		local line = make("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = Color3.fromRGB(170, 170, 178),
-			BorderSizePixel = 0,
-			Position = UDim2.new(0.5, (index - 1) * 3, 0.5, (index - 1) * 3),
-			Rotation = -45,
-			Size = UDim2.fromOffset(1, 5),
-			ZIndex = resizeMark.ZIndex + 1,
-		}, resizeMark)
-		corner(line, 1)
-	end
-	resizeGrip.MouseEnter:Connect(function()
-		tween(resizeGrip, Theme.HoverDuration, {
-			BackgroundTransparency = 0.35,
-		})
-		tween(resizeStroke, Theme.HoverDuration, {
-			Color = COLORS.Primary,
-			Transparency = 0.2,
-		})
-	end)
-	resizeGrip.MouseLeave:Connect(function()
-		tween(resizeGrip, Theme.HoverDuration, {
-			BackgroundTransparency = 1,
-		})
-		tween(resizeStroke, Theme.HoverDuration, {
-			Color = Theme.Stroke.Color,
-			Transparency = 1,
-		})
-	end)
 	local resizeStart = nil
 	local resizeStartSize = nil
 	resizeGrip.InputBegan:Connect(function(input)
@@ -1422,15 +1406,6 @@ function HavocLib.new(options)
 			resizeStartSize = nil
 		end
 	end))
-	resizeGrip.SelectionGained:Connect(function()
-		tween(resizeStroke, Theme.HoverDuration, {
-			Color = COLORS.Primary,
-			Transparency = 0.2,
-		})
-	end)
-	resizeGrip.SelectionLost:Connect(function()
-		tween(resizeStroke, Theme.HoverDuration, { Transparency = 1 })
-	end)
 	minimizeButton.MouseButton1Click:Connect(function()
 		window._minimized = not window._minimized
 		if window._minimized then
@@ -1679,7 +1654,10 @@ function Window:Tab(options)
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		ScrollBarImageColor3 = COLORS.Border,
-		ScrollBarImageTransparency = 0.84,
+		ScrollBarImageTransparency = 1,
+		TopImage = "",
+		MidImage = "",
+		BottomImage = "",
 		ScrollBarThickness = 0,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		VerticalScrollBarInset = Enum.ScrollBarInset.None,
@@ -1821,14 +1799,14 @@ function Tab:Section(options)
 	}, self._page)
 	corner(frame, 17)
 	-- The width cap reproduces the centered, compact cards in the reference.
-	make("UISizeConstraint", { MaxSize = Vector2.new(490, 100000) }, frame)
+	make("UISizeConstraint", { MaxSize = Vector2.new(476, 100000) }, frame)
 	padding(frame, 18, 18)
 	if sectionOptions.GradientColor then
 		Elements.Gradient(frame, frame.BackgroundColor3, sectionOptions.GradientColor)
 	else
 		Elements.Gradient(frame, Color3.fromRGB(36, 36, 39), frame.BackgroundColor3, 90)
 	end
-	stroke(frame, 0.74)
+	stroke(frame, 0.79)
 	local layout = make("UIListLayout", {
 		Padding = UDim.new(0, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1871,7 +1849,7 @@ function Tab:Section(options)
 	heading.Size = UDim2.new(0, headingWidth + 6, 1, 0)
 	local divider = make("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		BackgroundColor3 = Color3.fromRGB(75, 75, 81),
+		BackgroundColor3 = Color3.fromRGB(84, 84, 90),
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 43 + headingWidth, 0.5, 0),
@@ -2091,7 +2069,10 @@ function Section:Dropdown(options)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarThickness = 0,
 		ScrollBarImageColor3 = COLORS.Border,
-		ScrollBarImageTransparency = 0.55,
+		ScrollBarImageTransparency = 1,
+		TopImage = "",
+		MidImage = "",
+		BottomImage = "",
 		AutomaticSize = Enum.AutomaticSize.None,
 		BackgroundColor3 = COLORS.Background,
 		BackgroundTransparency = 0.04,
